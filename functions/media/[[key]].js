@@ -1,11 +1,15 @@
 export async function onRequest({ params, env }) {
-  const key = params.key.join("/");                 // everything after /media/
-  const object = await env.MEDIA.get(key);          // fetch from R2
+  // params.key is a *string* because we used [[key]]               ──┐
+  const key = params.key;                                          // │
+                                                                   // │
+  const object = await env.MEDIA.get(key); // env.MEDIA from TOML  ←┘
   if (!object) return new Response("Not found", { status: 404 });
 
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);                // preserve Content-Type etc.
-  headers.set("etag", object.httpEtag);
-
-  return new Response(object.body, { headers });
+  // Basic headers; content type falls back to jpeg
+  return new Response(object.body, {
+    headers: {
+      "Content-Type": object.httpMetadata?.contentType || "image/jpeg",
+      "ETag": object.httpEtag,
+    },
+  });
 }
